@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}About - Smart Attendance System{% endblock %}
+{% block page_title %}About{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+ABOUT PAGE
+Maps to Tkinter's show_about() in app.py (line 269).
+Displays project info, version, description, and team members.
+============================================================ -->
+<div class="about-page">
+    <div class="about-card">
+        <div class="about-body">
+            <h2 class="about-title">🎓 Smart Student Attendance System</h2>
+            <p class="about-version">Version 1.0</p>
+
+            <div class="about-description">
+                <p>
+                    An automated attendance system that uses face recognition
+                    to identify students and record their attendance, removing
+                    the need for manual roll calls. Built for a hackathon to
+                    demonstrate a full-stack desktop application workflow.
+                </p>
+            </div>
+
+            <h3 class="about-section-title">Team Members</h3>
+            <ul class="team-list">
+                <li><strong>Frontend Developer</strong> — Tkinter UI / Flask Web App</li>
+                <li><strong>Backend Developer</strong> — Camera &amp; Face Recognition</li>
+                <li><strong>Database Developer</strong> — SQLite Integration</li>
+                <li><strong>Integration Developer</strong> — Connecting all modules</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

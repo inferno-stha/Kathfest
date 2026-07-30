@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance - Smart Attendance System{% endblock %}
+{% block page_title %}Attendance{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+ATTENDANCE PAGE
+Maps to Tkinter's show_attendance() in app.py (line 260).
+Now fully integrated with face recognition:
+  - "Start Camera" accesses the webcam via MediaDevices API
+  - "Mark Attendance" captures a frame and sends it to the backend
+  - Backend runs OpenCV face recognition and marks attendance
+  - No manual name entry required!
+============================================================ -->
+<div class="attendance-page">
+    <div class="attendance-top">
+        <!-- Camera Preview Card -->
+        <div class="camera-card">
+            <div class="camera-preview" id="camera-preview">
+                <div class="camera-placeholder" id="camera-placeholder">
+                    <span class="camera-icon">📷</span>
+                    <p>Camera Preview<br><small>(Click "Start Camera" to begin)</small></p>
+                </div>
+                <video id="video-feed" style="display:none;" autoplay playsinline></video>
+                <canvas id="capture-canvas" style="display:none;"></canvas>
+            </div>
+            <!-- Status message area -->
+            <div id="attendance-status" class="alert" style="display:none;margin:10px;border-radius:6px;"></div>
+        </div>
+
+        <!-- Camera Controls -->
+        <div class="camera-controls">
+            <h3>Camera Controls</h3>
+            <button class="btn btn-primary btn-full" onclick="toggleCamera()" id="camera-toggle-btn">
+                ▶ Start Camera
+            </button>
+            <button class="btn btn-success btn-full" onclick="markAttendance()" id="mark-attendance-btn" disabled>
+                ✅ Mark Attendance
+            </button>
+            <hr style="margin:15px 0;border-color:var(--border-color);">
+            <p style="font-size:11px;color:var(--muted-text);">
+                Click "Start Camera" to activate your webcam.<br>
+                Then click "Mark Attendance" to automatically detect,
+                recognize, and mark attendance via face recognition.
+            </p>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="attendance-bottom">
+        <h3 class="section-title">Today's Attendance</h3>
+        <div class="table-container">
+            <table class="data-table" id="attendance-table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="attendance-tbody">
+                    {% for record in attendance %}
+                    <tr>
+                        <td>{{ record[0] }}</td>
+                        <td>{{ record[1] }}</td>
+                        <td>
+                            <span class="status-badge {% if record[2] == 'Present' %}status-present{% else %}status-absent{% endif %}">
+                                {{ record[2] }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button class="btn btn-secondary" onclick="refreshAttendance()" style="margin-top:10px;">
+            🔄 Refresh Table
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ============================================================
+   ATTENDANCE PAGE JAVASCRIPT
+   Handles camera access and face recognition-based attendance.
+   
+   FLOW:
+   1. User clicks "Start Camera" -> browser requests webcam access
+   2. User clicks "Mark Attendance" -> captures video frame to canvas
+   3. Canvas image (base64) sent to /api/attendance/mark via POST
+   4. Backend decodes image, runs face_recognition, marks attendance
+   5. Result displayed and table refreshed
+============================================================ */
+
+let cameraStream = null;
+let camActive = false;
+
+/**
+ * toggleCamera() - Start or stop the webcam stream.
+ * Uses the browser's MediaDevices.getUserMedia API.
+ */
+function toggleCamera() {
+    const video = document.getElementById('video-feed');
+    const placeholder = document.getElementById('camera-placeholder');
+    const toggleBtn = document.getElementById('camera-toggle-btn');
+    const markBtn = document.getElementById('mark-attendance-btn');
+
+    if (camActive) {
+        // Stop camera
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(t => t.stop());
+            cameraStream = null;
+        }
+        video.style.display = 'none';
+        placeholder.style.display = 'block';
+        toggleBtn.textContent = '▶ Start Camera';
+        toggleBtn.className = 'btn btn-primary btn-full';
+        markBtn.disabled = true;
+        camActive = false;
+        return;
+    }
+
+    // Start camera
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(stream) {
+                cameraStream = stream;
+                placeholder.style.display = 'none';
+                video.style.display = 'block';
+                video.srcObject = stream;
+                video.play();
+                toggleBtn.textContent = '⏹ Stop Camera';
+                toggleBtn.className = 'btn btn-danger btn-full';
+                markBtn.disabled = false;
+                camActive = true;
+                showStatus('Camera started successfully!', 'success');
+            })
+            .catch(function(err) {
+                showStatus('Could not access camera: ' + err.message, 'error');
+            });
+    } else {
+        showStatus('Camera not supported by this browser.', 'error');
+    }
+}
+
+/**
+ * markAttendance() - The KEY face recognition function.
+ * 
+ * How it works:
+ *   1. Captures a frame from the video element onto a canvas
+ *   2. Converts the canvas to a base64 JPEG string
+ *   3. Sends it to /api/attendance/mark on the Flask backend
+ *   4. Backend runs the full face recognition pipeline:
+ *      a. Decodes the JPEG to an OpenCV image
+ *      b. Detects faces using face_recognition.face_locations()
+ *      c. Encodes faces using face_recognition.face_encodings()
+ *      d. Compares against stored encodings in the database
+ *      e. If matched, marks attendance in the attendance table
+ *   5. Displays the result and refreshes the table
+ */
+function markAttendance() {
+    const video = document.getElementById('video-feed');
+    
+    if (!camActive || !cameraStream) {
+        showStatus('Please start the camera first.', 'error');
+        return;
+    }
+
+    // Step 1: Capture the current video frame to a canvas
+    const canvas = document.getElementById('capture-canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Step 2: Convert canvas to base64 JPEG
+    const imageData = canvas.toDataURL('image/jpeg');
+    
+    // Step 3: Disable button and show processing status
+    document.getElementById('mark-attendance-btn').disabled = true;
+    showStatus('Processing face recognition... ⏳', 'info');
+    
+    // Step 4: Send to backend for face recognition and attendance marking
+    fetch('/api/attendance/mark', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData })
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.success) {
+            if (result.already_marked) {
+                showStatus(result.message + ' (already marked today)', 'info');
+            } else {
+                showStatus('✅ ' + result.message, 'success');
+            }
+        } else {
+            showStatus('❌ ' + result.message, 'error');
+        }
+        
+        // Step 5: Refresh the attendance table
+        refreshAttendance();
+    })
+    .catch(err => {
+        showStatus('Error: ' + err.message, 'error');
+    })
+    .finally(() => {
+        document.getElementById('mark-attendance-btn').disabled = false;
+    });
+}
+
+/**
+ * refreshAttendance() - Fetches the latest attendance data from the
+ * backend and updates the table without a full page reload.
+ */
+function refreshAttendance() {
+    fetch('/api/attendance/data')
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.getElementById('attendance-tbody');
+        tbody.innerHTML = '';
+        data.forEach(record => {
+            const statusClass = record.status === 'Present' ? 'status-present' : 'status-absent';
+            const row = `<tr>
+                <td>${record.name}</td>
+                <td>${record.time}</td>
+                <td><span class="status-badge ${statusClass}">${record.status}</span></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    });
+}
+
+/**
+ * showStatus() - Shows a status message below the camera preview.
+ * The message auto-hides after 8 seconds.
+ */
+function showStatus(message, type) {
+    const statusDiv = document.getElementById('attendance-status');
+    statusDiv.textContent = message;
+    statusDiv.style.display = 'block';
+    
+    if (type === 'error') {
+        statusDiv.style.background = '#fde8e8';
+        statusDiv.style.color = '#E63946';
+        statusDiv.style.border = '1px solid #f5c6c6';
+    } else if (type === 'success') {
+        statusDiv.style.background = '#e6f7e6';
+        statusDiv.style.color = '#2FA84F';
+        statusDiv.style.border = '1px solid #c3e6c3';
+    } else if (type === 'info') {
+        statusDiv.style.background = '#e8f0fe';
+        statusDiv.style.color = '#1a73e8';
+        statusDiv.style.border = '1px solid #c5d9f7';
+    }
+    
+    // Clear status after 8 seconds
+    setTimeout(() => {
+        statusDiv.style.display = 'none';
+    }, 8000);
+}
+</script>
+{% endblock %}

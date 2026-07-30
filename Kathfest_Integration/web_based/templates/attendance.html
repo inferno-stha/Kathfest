@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance - Smart Attendance System{% endblock %}
+{% block page_title %}Attendance{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+ATTENDANCE PAGE
+Maps to Tkinter's show_attendance() in app.py (line 221).
+Includes a camera preview placeholder and the attendance table.
+============================================================ -->
+<div class="attendance-page">
+    <div class="attendance-top">
+        <!-- Camera Preview Card (maps to Tkinter's canvas placeholder) -->
+        <div class="camera-card">
+            <div class="camera-preview" id="camera-preview">
+                <div class="camera-placeholder">
+                    <span class="camera-icon">📷</span>
+                    <p>Camera Preview<br><small>(Not Connected)</small></p>
+                </div>
+                <video id="video-feed" style="display:none;" autoplay playsinline></video>
+            </div>
+        </div>
+
+        <!-- Camera Controls (maps to Tkinter's controls frame) -->
+        <div class="camera-controls">
+            <h3>Camera Controls</h3>
+            <button class="btn btn-primary btn-full" onclick="startCamera()">▶ Start Camera</button>
+            <button class="btn btn-success btn-full" onclick="markAttendance()">✅ Mark Attendance</button>
+        </div>
+    </div>
+
+    <!-- Attendance Table (maps to Tkinter's _make_table) -->
+    <div class="attendance-bottom">
+        <h3 class="section-title">Today's Attendance</h3>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in attendance %}
+                    <tr>
+                        <td>{{ record[0] }}</td>
+                        <td>{{ record[1] }}</td>
+                        <td>
+                            <span class="status-badge {% if record[2] == 'Present' %}status-present{% else %}status-absent{% endif %}">
+                                {{ record[2] }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ============================================================
+   ATTENDANCE PAGE JAVASCRIPT
+   Handles camera and attendance marking placeholders.
+   ============================================================ */
+
+/**
+ * startCamera() - PLACEHOLDER: requests camera access via browser API.
+ * Backend Developer: replace with actual OpenCV stream or
+ * MediaDevices.getUserMedia implementation.
+ */
+function startCamera() {
+    const preview = document.getElementById('camera-preview');
+    const placeholder = preview.querySelector('.camera-placeholder');
+    const video = document.getElementById('video-feed');
+
+    // Try to access the webcam using the browser's MediaDevices API
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(stream) {
+                placeholder.style.display = 'none';
+                video.style.display = 'block';
+                video.srcObject = stream;
+                video.play();
+                alert('Camera started successfully!');
+            })
+            .catch(function(err) {
+                alert('Could not access camera: ' + err.message);
+            });
+    } else {
+        // --- Backend Developer: fallback to OpenCV-based streaming ---
+        alert('Camera start coming soon! (Browser API not available)');
+    }
+}
+
+/**
+ * markAttendance() - PLACEHOLDER: marks the detected student as present.
+ * Integration Developer: connect to face recognition output and
+ * call /api/attendance/mark with the identified student name.
+ */
+function markAttendance() {
+    const studentName = prompt('Enter student name to mark present:');
+    if (!studentName) return;
+
+    fetch('/api/attendance/mark', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: studentName })
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.success) {
+            alert(result.message);
+            location.reload();  // Refresh to show updated attendance table
+        } else {
+            alert('Error: ' + result.error);
+        }
+    });
+}
+</script>
+{% endblock %}

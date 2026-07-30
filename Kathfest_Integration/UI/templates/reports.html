@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Smart Attendance System{% endblock %}
+{% block page_title %}Reports{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+REPORTS PAGE
+Maps to Tkinter's show_reports() in app.py (line 288).
+Now shows real database statistics and exports real CSV data.
+============================================================ -->
+<div class="reports-page">
+    <!-- Statistics Cards -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #2E5CE6;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ total_students }}</div>
+                <div class="stat-label">Total Students</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #2FA84F;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ present_students }}</div>
+                <div class="stat-label">Present Today</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #E63946;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ absent_students }}</div>
+                <div class="stat-label">Absent Today</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Options -->
+    <div class="reports-actions" style="margin-top:20px;">
+        <h3 class="section-title">Download Reports</h3>
+        <div class="actions-row" style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="exportCSV()">📄 Export All Attendance (CSV)</button>
+            <button class="btn btn-secondary" onclick="exportTodayCSV()">📄 Export Today Only (CSV)</button>
+        </div>
+    </div>
+
+    <!-- Recent Attendance Table -->
+    <div style="margin-top:25px;">
+        <h3 class="section-title">All Attendance Records</h3>
+        <div class="table-container">
+            <table class="data-table" id="reports-table">
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Roll Number</th>
+                        <th>Department</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="reports-tbody">
+                    <tr>
+                        <td colspan="6" style="text-align:center;color:var(--muted-text);">
+                            Loading data...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/**
+ * exportCSV() - Downloads the full attendance report as a CSV file.
+ * 
+ * The backend's /api/export-csv endpoint returns the CSV as a file
+ * download response (Content-Disposition: attachment), which triggers
+ * the browser's download dialog automatically.
+ */
+function exportCSV() {
+    // Create a temporary link element that points to the CSV download URL
+    const link = document.createElement('a');
+    link.href = '/api/export-csv';
+    link.download = 'attendance_report.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * exportTodayCSV() - Exports only today's attendance records as CSV.
+ * Fetches data and creates a CSV client-side.
+ */
+function exportTodayCSV() {
+    fetch('/api/attendance/data')
+    .then(res => res.json())
+    .then(data => {
+        if (data.length === 0) {
+            alert('No attendance records for today.');
+            return;
+        }
+        
+        // Build CSV content
+        let csv = 'Name,Time,Status\n';
+        data.forEach(r => {
+            csv += `"${r.name}","${r.time}","${r.status}"\n`;
+        });
+        
+        // Create download
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'attendance_today.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    });
+}
+
+/**
+ * Load all attendance records into the table on page load.
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/attendance/all')
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.getElementById('reports-tbody');
+        tbody.innerHTML = '';
+        
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted-text);">No attendance records found.</td></tr>';
+            return;
+        }
+        
+        data.forEach(r => {
+            const statusClass = r.status === 'Present' ? 'status-present' : 'status-absent';
+            const row = `<tr>
+                <td>${r.name}</td>
+                <td>${r.roll_number}</td>
+                <td>${r.department}</td>
+                <td>${r.date}</td>
+                <td>${r.time}</td>
+                <td><span class="status-badge ${statusClass}">${r.status}</span></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    })
+    .catch(err => {
+        document.getElementById('reports-tbody').innerHTML = 
+            '<tr><td colspan="6" style="text-align:center;color:var(--danger-color);">Error loading data.</td></tr>';
+    });
+});
+</script>
+{% endblock %}
