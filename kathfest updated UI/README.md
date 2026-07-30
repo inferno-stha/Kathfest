@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🎓 Smart Student Attendance System Using Face Recognition
 
 A desktop application that automates classroom attendance using face
@@ -150,3 +151,6 @@ docs/screenshots/attendance.png
 
 This project is released under the MIT License — free to use, modify,
 and distribute for educational and hackathon purposes.
+=======
+# Kathfest
+>>>>>>> 6e663bbd575fc344efa7bc0aafe768475916c791
