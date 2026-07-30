@@ -243,13 +243,14 @@ class MainApp:
         dept = self.dept_var.get()
         sem = self.sem_var.get()
         query = self.search_var.get().strip().lower()
+        placeholder = "search by student name or roll_no."
 
         rows = self.students_data
         if dept != "All Departments":
             rows = [r for r in rows if r[3] == dept]
         if sem != "All Semesters":
             rows = [r for r in rows if r[4] == sem]
-        if query:
+        if query and query != placeholder:
             rows = [r for r in rows if query in r[1].lower() or query in r[2].lower()]
 
         self.students_tree.delete(*self.students_tree.get_children())

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Smart Attendance System{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- ============================================================
+    SIDEBAR
+    Maps to Tkinter's self.sidebar in _build_sidebar().
+    Contains navigation buttons and the app logo.
+    ============================================================ -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <span class="app-icon">🎓</span>
+            <span class="app-name">Attendance</span>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                <span class="nav-icon">📊</span> Dashboard
+            </a>
+            <a href="{{ url_for('students') }}" class="nav-item {% if request.endpoint == 'students' %}active{% endif %}">
+                <span class="nav-icon">👨‍🎓</span> Students
+            </a>
+            <a href="{{ url_for('attendance') }}" class="nav-item {% if request.endpoint == 'attendance' %}active{% endif %}">
+                <span class="nav-icon">📷</span> Attendance
+            </a>
+            <a href="{{ url_for('reports') }}" class="nav-item {% if request.endpoint == 'reports' %}active{% endif %}">
+                <span class="nav-icon">📄</span> Reports
+            </a>
+            <a href="{{ url_for('about') }}" class="nav-item {% if request.endpoint == 'about' %}active{% endif %}">
+                <span class="nav-icon">ℹ</span> About
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('logout') }}" class="nav-item logout-btn">
+                <span class="nav-icon">🚪</span> Logout
+            </a>
+        </div>
+    </aside>
+
+    <!-- ============================================================
+    MAIN CONTENT AREA
+    Maps to Tkinter's self.content_area in _build_layout().
+    Child templates fill this block with their page-specific content.
+    ============================================================ -->
+    <main class="main-content">
+        <!-- Header (maps to Tkinter's self.header) -->
+        <header class="top-header">
+            <h1 class="page-title">{% block page_title %}Page Title{% endblock %}</h1>
+            <span class="welcome-text">👤 Welcome, Admin</span>
+        </header>
+
+        <!-- Page-specific content goes here (Jinja2 template inheritance) -->
+        <div class="content-area">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Students - Smart Attendance System{% endblock %}
+{% block page_title %}Students{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+STUDENTS PAGE
+Maps to Tkinter's show_students() in app.py (line 182).
+Includes filter row (department, semester, search) and student table.
+============================================================ -->
+<div class="students-page">
+    <!-- Filter Row (maps to Tkinter's filter_row with dropdowns and search) -->
+    <div class="filter-row">
+        <div class="filter-group">
+            <label for="dept-filter">Department</label>
+            <select id="dept-filter" class="form-select" onchange="filterStudents()">
+                <option value="all">All Departments</option>
+                {% for dept in departments %}
+                <option value="{{ dept }}">{{ dept }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="sem-filter">Semester</label>
+            <select id="sem-filter" class="form-select" onchange="filterStudents()">
+                <option value="all">All Semesters</option>
+                {% for sem in semesters %}
+                <option value="{{ sem }}">{{ sem }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group search-group">
+            <label for="search-input">🔍</label>
+            <input type="text" id="search-input" class="form-input"
+                   placeholder="Search by Student Name or Roll_No."
+                   onkeyup="filterStudents()">
+        </div>
+    </div>
+
+    <!-- Student Table (maps to Tkinter's ttk.Treeview) -->
+    <div class="table-container">
+        <table class="data-table" id="students-table">
+            <thead>
+                <tr>
+                    <th>Student ID</th>
+                    <th>Name</th>
+                    <th>Roll Number</th>
+                    <th>Department</th>
+                    <th>Semester</th>
+                </tr>
+            </thead>
+            <tbody id="students-tbody">
+                {% for student in students %}
+                <tr>
+                    <td>{{ student[0] }}</td>
+                    <td>{{ student[1] }}</td>
+                    <td>{{ student[2] }}</td>
+                    <td>{{ student[3] }}</td>
+                    <td>{{ student[4] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Action Buttons (maps to Tkinter's button_row) -->
+    <div class="action-row">
+        <button class="btn btn-primary" onclick="showAddStudentModal()">➕ Add Student</button>
+        <button class="btn btn-danger" onclick="deleteStudent()">🗑 Delete Student</button>
+        <button class="btn btn-success" onclick="captureFace()">📷 Capture Face</button>
+    </div>
+</div>
+
+<!-- ============================================================
+ADD STUDENT MODAL
+Maps to Tkinter's save_student() dialog (Toplevel window).
+============================================================ -->
+<div id="add-student-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add Student</h3>
+            <span class="modal-close" onclick="closeAddStudentModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="modal-student-id">Student ID</label>
+                <input type="text" id="modal-student-id" class="form-input" placeholder="e.g. S006">
+            </div>
+            <div class="form-group">
+                <label for="modal-name">Name</label>
+                <input type="text" id="modal-name" class="form-input" placeholder="Full name">
+            </div>
+            <div class="form-group">
+                <label for="modal-roll">Roll Number</label>
+                <input type="text" id="modal-roll" class="form-input" placeholder="e.g. R106">
+            </div>
+            <div class="form-group">
+                <label for="modal-dept">Department</label>
+                <select id="modal-dept" class="form-select">
+                    {% for dept in departments %}
+                    <option value="{{ dept }}">{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="modal-sem">Semester</label>
+                <select id="modal-sem" class="form-select">
+                    {% for sem in semesters %}
+                    <option value="{{ sem }}">{{ sem }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="modal-error" class="alert alert-error" style="display:none;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddStudentModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveStudent()">Save</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ============================================================
+   STUDENTS PAGE JAVASCRIPT
+   Handles filtering, adding, and deleting students via AJAX.
+   ============================================================ */
+
+/**
+ * filterStudents() - Filters the student table by department, semester,
+ * and text search. Called on dropdown change or keyup in search box.
+ * Maps to Tkinter's _filter_students().
+ */
+function filterStudents() {
+    const dept = document.getElementById('dept-filter').value;
+    const sem = document.getElementById('sem-filter').value;
+    const query = document.getElementById('search-input').value;
+
+    fetch('/api/students/filter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ department: dept, semester: sem, query: query })
+    })
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.getElementById('students-tbody');
+        tbody.innerHTML = '';
+        data.forEach(s => {
+            const row = `<tr>
+                <td>${s.id}</td>
+                <td>${s.name}</td>
+                <td>${s.roll}</td>
+                <td>${s.department}</td>
+                <td>${s.semester}</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    });
+}
+
+function showAddStudentModal() {
+    document.getElementById('add-student-modal').style.display = 'flex';
+    document.getElementById('modal-error').style.display = 'none';
+}
+
+function closeAddStudentModal() {
+    document.getElementById('add-student-modal').style.display = 'none';
+}
+
+/**
+ * saveStudent() - Sends new student data to the backend.
+ * Maps to Tkinter's save_student() with duplicate checking.
+ */
+function saveStudent() {
+    const data = {
+        student_id: document.getElementById('modal-student-id').value,
+        name: document.getElementById('modal-name').value,
+        roll: document.getElementById('modal-roll').value,
+        department: document.getElementById('modal-dept').value,
+        semester: document.getElementById('modal-sem').value
+    };
+
+    fetch('/api/students/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.success) {
+            alert(result.message);
+            closeAddStudentModal();
+            filterStudents();  // Refresh the table
+            // Clear modal fields
+            document.getElementById('modal-student-id').value = '';
+            document.getElementById('modal-name').value = '';
+            document.getElementById('modal-roll').value = '';
+        } else {
+            document.getElementById('modal-error').textContent = result.error;
+            document.getElementById('modal-error').style.display = 'block';
+        }
+    });
+}
+
+/**
+ * deleteStudent() - Prompts for a Student ID and deletes it.
+ * Maps to Tkinter's delete_student().
+ * Database Developer: replace with row selection from table.
+ */
+function deleteStudent() {
+    const sid = prompt('Enter Student ID to delete:');
+    if (!sid) return;
+
+    fetch('/api/students/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: sid })
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.success) {
+            alert('Student deleted successfully.');
+            filterStudents();  // Refresh the table
+        } else {
+            alert('Error: ' + result.error);
+        }
+    });
+}
+
+/**
+ * captureFace() - PLACEHOLDER for face capture functionality.
+ * Backend Developer: implement camera capture and face encoding.
+ */
+function captureFace() {
+    alert('Face capture feature coming soon!');
+}
+</script>
+{% endblock %}

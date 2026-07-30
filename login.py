@@ -89,7 +89,7 @@ class LoginWindow:
         self.root.title("Smart Student Attendance System - Login")
 
         # Fix the login window to a comfortable, centered size.
-        self.root.geometry("420x480")
+        self.root.geometry("450x540")
         self.root.configure(bg=styles.BACKGROUND_COLOR)
 
         # StringVar is a special Tkinter variable type. Unlike a
@@ -120,30 +120,33 @@ class LoginWindow:
     #     LoginWindow object is created.
     #
     # How it works:
-    #     We use pack() for simple vertical stacking of widgets,
-    #     since the login screen is a single column of elements.
+    #     All login widgets are wrapped inside one container Frame.
+    #     The root window uses grid() with equal row/column weights
+    #     so the container sits at the exact center (both horizontally
+    #     and vertically). No extra padding pushes it off-center.
     # ------------------------------------------------------------
     def _build_ui(self):
-        # A Frame is like a container/box that groups widgets
-        # together. It helps us organise the interface into
-        # sections instead of placing everything loosely on the
-        # window. Here, "container" holds the whole login card.
+        # Configure root grid so the container is centered
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
+
+        # ---- Centered container ----
+        # One Frame holds ALL login content. Grid centers it
+        # automatically because the cell is larger than the frame.
         container = tk.Frame(self.root, bg=styles.BACKGROUND_COLOR)
-        container.pack(expand=True, fill="both", padx=30, pady=30)
+        container.grid(row=0, column=0)
 
         # ---- Title Section ----
-        # Label widgets display text (or images) that the user
-        # cannot edit. We use one here for the app icon + name.
         title_label = tk.Label(
             container,
             text=f"{styles.ICON_APP} Smart Attendance System",
             font=styles.FONT_TITLE,
             bg=styles.BACKGROUND_COLOR,
             fg=styles.TEXT_COLOR,
-            wraplength=360,
+            wraplength=380,
             justify="center",
         )
-        title_label.pack(pady=(10, 0))
+        title_label.pack(pady=(0, 0))
 
         subtitle_label = tk.Label(
             container,
@@ -152,22 +155,19 @@ class LoginWindow:
             bg=styles.BACKGROUND_COLOR,
             fg=styles.MUTED_TEXT_COLOR,
         )
-        subtitle_label.pack(pady=(0, 25))
+        subtitle_label.pack(pady=(6, 20))
 
         # ---- Card that holds the login form ----
-        # We put the form inside a white "card" Frame with a
-        # border to make it visually pop against the light grey
-        # background, mimicking a modern login card design.
         card = tk.Frame(
             container,
             bg=styles.CARD_COLOR,
             highlightbackground=styles.BORDER_COLOR,
             highlightthickness=1,
         )
-        card.pack(fill="x", pady=10)
+        card.pack(fill="x")
 
         form_inner = tk.Frame(card, bg=styles.CARD_COLOR)
-        form_inner.pack(fill="x", padx=25, pady=25)
+        form_inner.pack(fill="x", padx=25, pady=22)
 
         # ---- Username field ----
         username_label = tk.Label(
@@ -180,13 +180,11 @@ class LoginWindow:
         )
         username_label.pack(fill="x")
 
-        # ttk.Entry is a single-line text input field. We link it
-        # to self.username_var so we can read what the user typed.
         username_entry = ttk.Entry(
-            form_inner, textvariable=self.username_var, font=styles.FONT_BODY
+            form_inner, textvariable=self.username_var, font=styles.FONT_BODY, width=28
         )
-        username_entry.pack(fill="x", pady=(5, 15), ipady=5)
-        username_entry.focus()  # Cursor starts here when window opens.
+        username_entry.pack(fill="x", pady=(5, 14), ipady=5)
+        username_entry.focus()
 
         # ---- Password field ----
         password_label = tk.Label(
@@ -199,32 +197,25 @@ class LoginWindow:
         )
         password_label.pack(fill="x")
 
-        # show="*" hides typed characters, standard for password
-        # fields. We toggle this later based on the checkbox.
         self.password_entry = ttk.Entry(
             form_inner,
             textvariable=self.password_var,
             font=styles.FONT_BODY,
             show="*",
+            width=28,
         )
         self.password_entry.pack(fill="x", pady=(5, 10), ipady=5)
 
         # ---- Show Password checkbox ----
-        # ttk.Checkbutton toggles a BooleanVar between True/False.
-        # The "command" option runs a function every time the user
-        # clicks it, which we use to reveal/hide the password.
         show_password_check = ttk.Checkbutton(
             form_inner,
             text="Show Password",
             variable=self.show_password_var,
             command=self._toggle_password_visibility,
         )
-        show_password_check.pack(anchor="w", pady=(0, 20))
+        show_password_check.pack(anchor="w", pady=(0, 18))
 
-        # ---- Login button ----
-        # A standard tk.Button (rather than ttk.Button) is used
-        # here so we have full control over background/foreground
-        # colors, which some ttk themes restrict.
+        # ---- Login button (full width inside the card) ----
         login_button = tk.Button(
             form_inner,
             text="Login",
@@ -239,11 +230,9 @@ class LoginWindow:
         )
         login_button.pack(fill="x", ipady=8)
 
-        # Pressing Enter in either field should also try to log in,
-        # which feels more natural than forcing a mouse click.
         self.root.bind("<Return>", lambda event: self.attempt_login())
 
-        # ---- Exit button ----
+        # ---- Exit button (below the card, inside the container) ----
         exit_button = tk.Button(
             container,
             text="Exit",
@@ -256,17 +245,17 @@ class LoginWindow:
             cursor="hand2",
             command=self.root.destroy,
         )
-        exit_button.pack(fill="x", pady=(15, 0), ipady=6)
+        exit_button.pack(fill="x", pady=(12, 0), ipady=6)
 
-        # ---- Hint for hackathon judges/teammates ----
+        # ---- Centered demo credentials hint ----
         hint_label = tk.Label(
             container,
-            text="Demo credentials -> Username: admin | Password: admin",
+            text="Demo credentials \u2192 Username: admin | Password: admin",
             font=("Segoe UI", 9),
             bg=styles.BACKGROUND_COLOR,
             fg=styles.MUTED_TEXT_COLOR,
         )
-        hint_label.pack(pady=(20, 0))
+        hint_label.pack(pady=(14, 0))
 
     # ------------------------------------------------------------
     # Function: _toggle_password_visibility()

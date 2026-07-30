@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Smart Attendance System{% endblock %}
+{% block page_title %}Reports{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+REPORTS PAGE
+Maps to Tkinter's show_reports() in app.py (line 249).
+Shows attendance statistics and an Export CSV button.
+============================================================ -->
+<div class="reports-page">
+    <!-- Statistics Cards (maps to Tkinter's stats_row) -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #2E5CE6;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ total_students }}</div>
+                <div class="stat-label">Total Students</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #2FA84F;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ present_students }}</div>
+                <div class="stat-label">Present Students</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #E63946;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ absent_students }}</div>
+                <div class="stat-label">Absent Students</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export CSV Button (maps to Tkinter's export_csv placeholder) -->
+    <div class="reports-actions">
+        <button class="btn btn-primary" onclick="exportCSV()">📄 Export CSV</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/**
+ * exportCSV() - PLACEHOLDER: exports attendance data as a CSV file.
+ * Backend Developer: implement CSV download using Python's csv module
+ * and return the file as a Flask send_file / Response.
+ */
+function exportCSV() {
+    fetch('/api/export-csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(res => res.json())
+    .then(result => {
+        alert(result.message);
+        // --- Backend Developer: replace with file download logic ---
+    });
+}
+</script>
+{% endblock %}
