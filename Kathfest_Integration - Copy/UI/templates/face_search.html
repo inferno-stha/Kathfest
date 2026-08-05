@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Face Search - Smart Attendance System{% endblock %}
+{% block page_title %}Face Search{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+FACE SEARCH PAGE (v2)
+Search for a student using ONLY their face:
+  1. Open the camera
+  2. Capture a face
+  3. Compare against the database
+  4. If found -> result card with full details + attendance stats
+============================================================ -->
+<div class="attendance-page">
+    <div class="attendance-top">
+        <!-- Camera Preview Card -->
+        <div class="camera-card">
+            <div class="camera-preview" id="camera-preview">
+                <div class="camera-stage">
+                    <div class="camera-placeholder" id="camera-placeholder">
+                        <span class="camera-icon">🔎</span>
+                        <p>Face Search Camera<br><small>(Click "Start Camera" to begin)</small></p>
+                    </div>
+                    <video id="video-feed" style="display:none;" autoplay playsinline></video>
+                    <canvas id="capture-canvas" style="display:none;"></canvas>
+                    <div class="roi-box" id="roi-box" style="display:none;"></div>
+                    <div class="recognition-overlay" id="recognition-overlay" style="display:none;"></div>
+                </div>
+            </div>
+            <div id="search-status" class="alert" style="display:none;margin:10px;border-radius:6px;"></div>
+        </div>
+
+        <!-- Camera Controls -->
+        <div class="camera-controls">
+            <h3>Face Search</h3>
+            <button class="btn btn-primary btn-full" onclick="toggleCamera()" id="camera-toggle-btn">
+                ▶ Start Camera
+            </button>
+            <button class="btn btn-success btn-full" onclick="doFaceSearch()" id="search-btn" disabled>
+                🔎 Search Face
+            </button>
+            <hr style="margin:15px 0;border-color:var(--border-color);">
+            <p style="font-size:11px;color:var(--muted-text);">
+                Position the face inside the green box, then click
+                <strong>"Search Face"</strong>. The system compares the
+                captured face with every registered student and shows
+                the matching student's details.
+            </p>
+        </div>
+    </div>
+
+    <!-- Result Card (hidden until a match is found) -->
+    <div class="result-card" id="result-card" style="display:none;">
+        <div class="result-card-header">
+            <img id="result-photo" class="result-face-photo" src="" alt="Registered face" style="display:none;">
+            <div id="result-photo-placeholder" class="result-face-photo-placeholder">🧑</div>
+            <div>
+                <div class="result-name" id="result-name">--</div>
+                <div class="result-roll" id="result-roll">--</div>
+                <span class="result-confidence" id="result-confidence"></span>
+            </div>
+        </div>
+        <div class="result-card-body">
+            <div class="result-stat">
+                <div class="value" id="result-dept">--</div>
+                <div class="label">Department</div>
+            </div>
+            <div class="result-stat">
+                <div class="value" id="result-sem">--</div>
+                <div class="label">Semester</div>
+            </div>
+            <div class="result-stat">
+                <div class="value" id="result-pct">--</div>
+                <div class="label">Attendance %</div>
+            </div>
+            <div class="result-stat">
+                <div class="value" id="result-total">--</div>
+                <div class="label">Total Classes</div>
+            </div>
+            <div class="result-stat">
+                <div class="value" id="result-present">--</div>
+                <div class="label">Present</div>
+            </div>
+            <div class="result-stat">
+                <div class="value" id="result-absent">--</div>
+                <div class="label">Absent</div>
+            </div>
+            <div class="result-stat">
+                <div class="value" id="result-last">--</div>
+                <div class="label">Last Attendance</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- No match message -->
+    <div class="alert alert-error" id="no-match" style="display:none;margin-top:15px;">
+        No matching student found.
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ============================================================
+   FACE SEARCH PAGE JAVASCRIPT
+   Uses the browser MediaDevices API + backend /api/face-search.
+   The server never writes attendance during a search.
+============================================================ */
+
+let cameraStream = null;
+let camActive = false;
+
+function positionRoiBox() {
+    const video = document.getElementById('video-feed');
+    const roiBox = document.getElementById('roi-box');
+    if (!video || video.style.display === 'none') return;
+
+    const rect = video.getBoundingClientRect();
+    const size = Math.min(rect.width, rect.height) * 0.62;
+    roiBox.style.left = ((rect.width - size) / 2) + 'px';
+    roiBox.style.top = ((rect.height - size) / 2) + 'px';
+    roiBox.style.width = size + 'px';
+    roiBox.style.height = size + 'px';
+    roiBox.style.display = 'block';
+}
+
+function showStatus(message, type) {
+    const statusDiv = document.getElementById('search-status');
+    statusDiv.textContent = message;
+    statusDiv.style.display = 'block';
+    const styles = {
+        error:   { background: '#fde8e8', color: '#E63946', border: '1px solid #f5c6c6' },
+        success: { background: '#e6f7e6', color: '#2FA84F', border: '1px solid #c3e6c3' },
+        info:    { background: '#e8f0fe', color: '#1a73e8', border: '1px solid #c5d9f7' }
+    };
+    const s = styles[type] || styles.info;
+    statusDiv.style.background = s.background;
+    statusDiv.style.color = s.color;
+    statusDiv.style.border = s.border;
+}
+
+function toggleCamera() {
+    const video = document.getElementById('video-feed');
+    const placeholder = document.getElementById('camera-placeholder');
+    const toggleBtn = document.getElementById('camera-toggle-btn');
+    const searchBtn = document.getElementById('search-btn');
+
+    if (camActive) {
+        if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+        video.style.display = 'none';
+        placeholder.style.display = 'block';
+        document.getElementById('roi-box').style.display = 'none';
+        toggleBtn.textContent = '▶ Start Camera';
+        searchBtn.disabled = true;
+        camActive = false;
+        return;
+    }
+
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(stream) {
+                cameraStream = stream;
+                placeholder.style.display = 'none';
+                video.style.display = 'block';
+                video.srcObject = stream;
+                video.play();
+                toggleBtn.textContent = '⏹ Stop Camera';
+                searchBtn.disabled = false;
+                camActive = true;
+                positionRoiBox();
+                window.addEventListener('resize', positionRoiBox);
+                showStatus('Camera started. Click "Search Face" to find a student.', 'info');
+            })
+            .catch(function(err) {
+                showStatus('Could not access camera: ' + err.message, 'error');
+            });
+    } else {
+        showStatus('Camera not supported by this browser.', 'error');
+    }
+}
+
+function doFaceSearch() {
+    const video = document.getElementById('video-feed');
+    if (!camActive || !cameraStream) {
+        showStatus('Please start the camera first.', 'error');
+        return;
+    }
+
+    const canvas = document.getElementById('capture-canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL('image/jpeg');
+
+    document.getElementById('search-btn').disabled = true;
+    showStatus('Searching for a matching student... ⏳', 'info');
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('no-match').style.display = 'none';
+
+    fetch('/api/face-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData })
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.success && result.result) {
+            showResultCard(result.result, result.confidence);
+        } else {
+            document.getElementById('no-match').style.display = 'block';
+            showStatus('No matching student found.', 'error');
+        }
+    })
+    .catch(err => showStatus('Error: ' + err.message, 'error'))
+    .finally(() => { document.getElementById('search-btn').disabled = false; });
+}
+
+/* Fill the result card with student details. */
+function showResultCard(student, confidence) {
+    document.getElementById('result-card').style.display = 'block';
+    document.getElementById('no-match').style.display = 'none';
+
+    document.getElementById('result-name').textContent = student.name;
+    document.getElementById('result-roll').textContent = student.roll_number;
+    document.getElementById('result-dept').textContent = student.department || '--';
+    document.getElementById('result-sem').textContent = student.semester || '--';
+    document.getElementById('result-pct').textContent = (student.attendance_pct !== null && student.attendance_pct !== undefined)
+        ? student.attendance_pct + '%' : '--';
+    document.getElementById('result-total').textContent = student.total_classes ?? '--';
+    document.getElementById('result-present').textContent = student.present ?? '--';
+    document.getElementById('result-absent').textContent = student.absent ?? '--';
+    document.getElementById('result-last').textContent = student.last_attendance || '--';
+
+    const confEl = document.getElementById('result-confidence');
+    confEl.textContent = 'Confidence: ' + (confidence ?? 0) + '%';
+    confEl.className = 'result-confidence' + ((confidence ?? 0) < 80 ? ' low' : '');
+
+    // Registered face photo (base64 JPEG from the database)
+    const photo = document.getElementById('result-photo');
+    const placeholder = document.getElementById('result-photo-placeholder');
+    if (student.face_image) {
+        photo.src = 'data:image/jpeg;base64,' + student.face_image;
+        photo.style.display = 'block';
+        placeholder.style.display = 'none';
+    } else {
+        photo.style.display = 'none';
+        placeholder.style.display = 'flex';
+    }
+
+    showStatus('✅ Match found!', 'success');
+}
+</script>
+{% endblock %}

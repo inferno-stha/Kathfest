@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Smart Attendance System{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+DASHBOARD PAGE
+Maps to Tkinter's show_dashboard() in app.py (line 146).
+v2 additions:
+  - Face Registered stat
+  - Attendance by department (bar chart)
+  - Attendance by semester (bar chart)
+  - Today's attendance / daily trend (line chart)
+  - Monthly attendance graph
+  - Top absent students table
+============================================================ -->
+<div class="dashboard">
+    <div class="welcome-section">
+        <h2 class="welcome-title">Welcome back, Admin! 👋</h2>
+        <p class="welcome-subtitle">Here's a quick overview of today's attendance activity.</p>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #2E5CE6;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ total_students }}</div>
+                <div class="stat-label">Total Students</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #2FA84F;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ present_today }}</div>
+                <div class="stat-label">Present Today</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #E8A93B;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ attendance_pct }}%</div>
+                <div class="stat-label">Attendance %</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #6A4BC7;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ face_registered }}</div>
+                <div class="stat-label">Face Registered</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;">
+        <div class="chart-card">
+            <h3>Attendance by Department</h3>
+            <div class="chart-box"><canvas id="chart-dept"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <h3>Attendance by Semester</h3>
+            <div class="chart-box"><canvas id="chart-sem"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <h3>Today's Attendance (last 14 days)</h3>
+            <div class="chart-box"><canvas id="chart-daily"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <h3>Monthly Attendance</h3>
+            <div class="chart-box"><canvas id="chart-monthly"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Top Absent Students -->
+    <div class="chart-card">
+        <h3> Top Present Students</h3>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Roll Number</th>
+                        <th>Department</th>
+                        <th>Total</th>
+                        <th>Present</th>
+                        <th>Attendance %</th>
+                    </tr>
+                </thead>
+                <tbody id="top-absent-tbody">
+                    <tr><td colspan="6" style="text-align:center;color:var(--muted-text);">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <h3 class="section-title">Quick Actions</h3>
+        <div class="actions-row">
+            <a href="{{ url_for('students') }}" class="btn btn-primary">👨‍🎓 Students</a>
+            <a href="{{ url_for('attendance') }}" class="btn btn-primary">📷 Attendance</a>
+            <a href="{{ url_for('reports') }}" class="btn btn-primary">📄 Reports</a>
+            <a href="{{ url_for('face_search') }}" class="btn btn-primary">🔎 Face Search</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ============================================================
+   DASHBOARD JAVASCRIPT (v2 charts)
+   Fetches data from the /api/dashboard/* endpoints and renders
+   Chart.js graphs.
+============================================================ */
+
+function fetchJSON(url) {
+    return fetch(url).then(res => res.json());
+}
+
+function colorize(labels) {
+    const palette = ['#2E5CE6', '#2FA84F', '#E8A93B', '#E63946', '#6A4BC7',
+                     '#1a73e8', '#0aa2a2', '#f06292'];
+    return labels.map((_, i) => palette[i % palette.length]);
+}
+
+/* 1. Attendance by department */
+function loadDeptChart() {
+    fetchJSON('/api/dashboard/attendance-by-department')
+    .then(data => {
+        const labels = data.map(d => d.department || 'N/A');
+        const present = data.map(d => d.present);
+        const total = data.map(d => d.total);
+
+        new Chart(document.getElementById('chart-dept'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Total', data: total, backgroundColor: '#c5d9f7' },
+                    { label: 'Present', data: present, backgroundColor: '#2E5CE6' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+    })
+    .catch(err => console.error('dept chart:', err));
+}
+
+/* 2. Attendance by semester */
+function loadSemChart() {
+    fetchJSON('/api/dashboard/attendance-by-semester')
+    .then(data => {
+        const labels = data.map(d => d.semester || 'N/A');
+        const present = data.map(d => d.present);
+        const total = data.map(d => d.total);
+
+        new Chart(document.getElementById('chart-sem'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Total', data: total, backgroundColor: '#d9f0dd' },
+                    { label: 'Present', data: present, backgroundColor: '#2FA84F' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+    })
+    .catch(err => console.error('sem chart:', err));
+}
+
+/* 3. Daily attendance trend (last 14 days) */
+function loadDailyChart() {
+    fetchJSON('/api/dashboard/daily?days=14')
+    .then(data => {
+        const labels = data.map(d => d.date.slice(5)); // MM-DD
+        const present = data.map(d => d.present);
+
+        new Chart(document.getElementById('chart-daily'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Present',
+                    data: present,
+                    borderColor: '#1a73e8',
+                    backgroundColor: 'rgba(26,115,232,0.15)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+    })
+    .catch(err => console.error('daily chart:', err));
+}
+
+/* 4. Monthly attendance graph */
+function loadMonthlyChart() {
+    fetchJSON('/api/dashboard/monthly?months=6')
+    .then(data => {
+        const labels = data.map(d => d.month);
+        const present = data.map(d => d.present);
+
+        new Chart(document.getElementById('chart-monthly'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Present',
+                    data: present,
+                    backgroundColor: '#E8A93B',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+    })
+    .catch(err => console.error('monthly chart:', err));
+}
+
+/* 5. Top absent students table */
+function loadTopAbsent() {
+    fetchJSON('/api/dashboard/top-absent?limit=5')
+    .then(data => {
+        const tbody = document.getElementById('top-absent-tbody');
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted-text);">No attendance data yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = '';
+        data.forEach(s => {
+            const pctClass = s.pct < 50 ? 'status-absent' : 'status-present';
+            const row = `<tr>
+                <td>${s.name}</td>
+                <td>${s.roll_number}</td>
+                <td>${s.department || '--'}</td>
+                <td>${s.total}</td>
+                <td>${s.present}</td>
+                <td><span class="status-badge ${pctClass}">${s.pct}%</span></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    })
+    .catch(err => console.error('top absent:', err));
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadDeptChart();
+    loadSemChart();
+    loadDailyChart();
+    loadMonthlyChart();
+    loadTopAbsent();
+});
+</script>
+{% endblock %}

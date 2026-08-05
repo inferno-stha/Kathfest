@@ -1,0 +1,1090 @@
+/* ============================================================
+   style.css - Main stylesheet for Smart Student Attendance System
+   
+   Maps to Tkinter's styles.py. All colors, fonts, and spacing
+   from the Tkinter theme are preserved as CSS variables.
+   ============================================================ */
+
+/* ============================================================
+   CSS VARIABLES (mapped from styles.py)
+   ============================================================ */
+:root {
+    /* Colors (from styles.py lines 46-85) */
+    --sidebar-color: #1B2A4A;
+    --sidebar-hover: #28406e;
+    --sidebar-text: #FFFFFF;
+    --button-color: #2E5CE6;
+    --button-hover: #1E45B8;
+    --button-text: #FFFFFF;
+    --background-color: #F2F3F7;
+    --card-color: #FFFFFF;
+    --text-color: #22262F;
+    --muted-text: #6B7280;
+    --danger-color: #E63946;
+    --success-color: #2FA84F;
+    --warning-color: #E8A93B;
+    --border-color: #D9DCE3;
+
+    /* Font sizes (from styles.py lines 97-105) */
+    --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-title: 22px;
+    --font-subtitle: 13px;
+    --font-heading: 16px;
+    --font-body: 11px;
+    --font-button: 11px;
+    --font-sidebar: 12px;
+    --font-stat-number: 26px;
+    --font-stat-label: 11px;
+
+    /* Sizing (from styles.py lines 130-134) */
+    --sidebar-width: 220px;
+    --header-height: 60px;
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    background: var(--background-color);
+    color: var(--text-color);
+    display: flex;
+    min-height: 100vh;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* ============================================================
+   LOGIN PAGE (standalone, no sidebar)
+   ============================================================ */
+body.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--sidebar-color);
+    min-height: 100vh;
+}
+
+.login-container {
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+}
+
+.login-card {
+    background: var(--card-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    overflow: hidden;
+}
+
+.login-header {
+    text-align: center;
+    padding: 30px 20px 20px;
+}
+
+.login-icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.login-header h1 {
+    font-size: 20px;
+    color: var(--text-color);
+    margin-bottom: 6px;
+}
+
+.login-header p {
+    font-size: var(--font-subtitle);
+    color: var(--muted-text);
+}
+
+.login-form {
+    padding: 20px 30px 30px;
+}
+
+.login-footer {
+    text-align: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-top: 1px solid var(--border-color);
+}
+
+.login-footer p {
+    font-size: var(--font-body);
+    color: var(--muted-text);
+}
+
+/* ============================================================
+   SIDEBAR (maps to Tkinter's sidebar frame)
+   ============================================================ */
+.sidebar {
+    width: var(--sidebar-width);
+    background: var(--sidebar-color);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 25px 20px;
+    font-size: var(--font-heading);
+    font-weight: bold;
+}
+
+.app-icon {
+    font-size: 24px;
+}
+
+.sidebar-nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    font-size: var(--font-sidebar);
+    font-weight: bold;
+    color: var(--sidebar-text);
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+.nav-item:hover {
+    background: var(--sidebar-hover);
+}
+
+.nav-item.active {
+    background: var(--sidebar-hover);
+    border-left: 3px solid var(--button-color);
+}
+
+.nav-icon {
+    font-size: 16px;
+    width: 24px;
+    text-align: center;
+}
+
+.sidebar-footer {
+    padding: 10px 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.logout-btn {
+    color: var(--danger-color);
+}
+
+/* ============================================================
+   MAIN CONTENT AREA
+   ============================================================ */
+.main-content {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* ============================================================
+   HEADER (maps to Tkinter's header frame)
+   ============================================================ */
+.top-header {
+    height: var(--header-height);
+    background: var(--card-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 25px;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 99;
+}
+
+.page-title {
+    font-size: var(--font-heading);
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.welcome-text {
+    font-size: var(--font-body);
+    color: var(--muted-text);
+}
+
+/* ============================================================
+   CONTENT AREA (maps to Tkinter's content_area)
+   ============================================================ */
+.content-area {
+    flex: 1;
+    padding: 20px 25px;
+}
+
+/* ============================================================
+   STAT CARDS (maps to Tkinter's _stat_card)
+   ============================================================ */
+.stats-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 25px;
+}
+
+.stat-card {
+    flex: 1;
+    background: var(--card-color);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.stat-accent {
+    height: 4px;
+}
+
+.stat-body {
+    padding: 18px 20px;
+}
+
+.stat-number {
+    font-size: var(--font-stat-number);
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.stat-label {
+    font-size: var(--font-stat-label);
+    color: var(--muted-text);
+    margin-top: 4px;
+}
+
+/* ============================================================
+   WELCOME SECTION (Dashboard)
+   ============================================================ */
+.welcome-section {
+    margin-bottom: 20px;
+}
+
+.welcome-title {
+    font-size: var(--font-title);
+    color: var(--text-color);
+}
+
+.welcome-subtitle {
+    font-size: var(--font-subtitle);
+    color: var(--muted-text);
+    margin-top: 4px;
+}
+
+/* ============================================================
+   QUICK ACTIONS (Dashboard)
+   ============================================================ */
+.quick-actions {
+    margin-top: 10px;
+}
+
+.section-title {
+    font-size: var(--font-heading);
+    color: var(--text-color);
+    margin-bottom: 12px;
+}
+
+.actions-row {
+    display: flex;
+    gap: 12px;
+}
+
+/* ============================================================
+   BUTTONS (maps to Tkinter's _action_button)
+   ============================================================ */
+.btn {
+    display: inline-block;
+    padding: 10px 18px;
+    font-size: var(--font-button);
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    font-family: var(--font-family);
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+.btn-primary {
+    background: var(--button-color);
+    color: var(--button-text);
+}
+
+.btn-primary:hover {
+    background: var(--button-hover);
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: var(--button-text);
+}
+
+.btn-success:hover {
+    background: #23943e;
+}
+
+.btn-danger {
+    background: var(--danger-color);
+    color: var(--button-text);
+}
+
+.btn-danger:hover {
+    background: #c52e3a;
+}
+
+.btn-secondary {
+    background: #e0e0e0;
+    color: var(--text-color);
+}
+
+.btn-secondary:hover {
+    background: #cccccc;
+}
+
+.btn-full {
+    width: 100%;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 10px;
+    border-radius: 4px;
+    margin: 0 2px;
+}
+
+.btn-block {
+    display: block;
+    width: 100%;
+}
+
+.alert-success {
+    background: #e6f7e6;
+    color: var(--success-color);
+    border: 1px solid #c3e6c3;
+}
+
+.alert-info {
+    background: #e8f0fe;
+    color: #1a73e8;
+    border: 1px solid #c5d9f7;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+}
+
+/* ============================================================
+   FORMS
+   ============================================================ */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    font-size: var(--font-body);
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: 5px;
+}
+
+.form-input,
+.form-select {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: var(--font-body);
+    font-family: var(--font-family);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--card-color);
+    color: var(--text-color);
+}
+
+.form-input:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--button-color);
+    box-shadow: 0 0 0 2px rgba(46, 92, 230, 0.15);
+}
+
+/* ============================================================
+   V2: FORM VALIDATION HELPERS
+   ============================================================ */
+.field-hint {
+    display: block;
+    font-size: 10px;
+    color: var(--muted-text);
+    margin-top: 4px;
+}
+
+.field-error {
+    font-size: 11px;
+    color: var(--danger-color);
+    margin-top: 4px;
+    min-height: 0;
+}
+
+.form-input.invalid,
+.form-select.invalid {
+    border-color: var(--danger-color);
+}
+
+/* ============================================================
+   FILTER ROW (Students page)
+   ============================================================ */
+.filter-row {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.filter-group label {
+    font-size: var(--font-body);
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.filter-group select,
+.filter-group input {
+    min-width: 180px;
+}
+
+.search-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.search-group input {
+    min-width: unset;
+}
+
+/* ============================================================
+   TABLE (maps to Tkinter's ttk.Treeview)
+   ============================================================ */
+.table-container {
+    background: var(--card-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    overflow: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table thead {
+    background: #f8f9fa;
+}
+
+.data-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: var(--font-body);
+    font-weight: bold;
+    color: var(--text-color);
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: 10px 16px;
+    font-size: var(--font-body);
+    color: var(--text-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr:hover {
+    background: #f0f4ff;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ============================================================
+   ACTION ROW (Students page buttons)
+   ============================================================ */
+.action-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+/* ============================================================
+   ATTENDANCE PAGE LAYOUT
+   ============================================================ */
+.attendance-top {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+}
+
+.camera-card {
+    flex: 1;
+    min-width: 350px;
+    background: var(--card-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+.camera-preview {
+    width: 100%;
+    height: 260px;
+    background: #0F1B33;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.camera-placeholder {
+    text-align: center;
+    color: white;
+}
+
+.camera-icon {
+    font-size: 40px;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.camera-placeholder p {
+    font-size: var(--font-heading);
+    font-weight: bold;
+}
+
+.camera-placeholder small {
+    font-size: var(--font-body);
+    opacity: 0.7;
+}
+
+#video-feed {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-controls {
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.camera-controls h3 {
+    font-size: var(--font-heading);
+    margin-bottom: 5px;
+}
+
+.attendance-bottom {
+    margin-top: 10px;
+}
+
+/* ============================================================
+   STATUS BADGES
+   ============================================================ */
+.status-badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.status-present {
+    background: #e6f7e6;
+    color: var(--success-color);
+}
+
+.status-absent {
+    background: #fde8e8;
+    color: var(--danger-color);
+}
+
+/* ============================================================
+   ALERTS
+   ============================================================ */
+.alert {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: var(--font-body);
+    margin-bottom: 15px;
+}
+
+.alert-error {
+    background: #fde8e8;
+    color: var(--danger-color);
+    border: 1px solid #f5c6c6;
+}
+
+/* ============================================================
+   MODAL (Add Student dialog)
+   ============================================================ */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--card-color);
+    border-radius: 12px;
+    width: 420px;
+    max-width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    font-size: var(--font-heading);
+}
+
+.modal-close {
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--muted-text);
+}
+
+.modal-close:hover {
+    color: var(--text-color);
+}
+
+.modal-body {
+    padding: 20px 24px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 15px 24px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* ============================================================
+   ABOUT PAGE
+   ============================================================ */
+.about-page {
+    max-width: 650px;
+}
+
+.about-card {
+    background: var(--card-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+.about-body {
+    padding: 30px;
+}
+
+.about-title {
+    font-size: var(--font-title);
+    color: var(--text-color);
+    margin-bottom: 6px;
+}
+
+.about-version {
+    font-size: var(--font-body-bold);
+    color: var(--muted-text);
+    margin-bottom: 18px;
+}
+
+.about-description {
+    margin-bottom: 20px;
+    line-height: 1.6;
+    color: var(--text-color);
+}
+
+.about-section-title {
+    font-size: var(--font-heading);
+    margin-bottom: 10px;
+    color: var(--text-color);
+}
+
+.team-list {
+    list-style: none;
+    padding: 0;
+}
+
+.team-list li {
+    padding: 6px 0;
+    font-size: var(--font-body);
+    color: var(--text-color);
+}
+
+.team-list li::before {
+    content: "• ";
+    color: var(--button-color);
+    font-weight: bold;
+}
+
+/* ============================================================
+   RESPONSIVE DESIGN
+   ============================================================ */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 60px;
+    }
+    .sidebar-header .app-name,
+    .nav-item span:not(.nav-icon) {
+        display: none;
+    }
+    .main-content {
+        margin-left: 60px;
+    }
+    .stats-row {
+        flex-direction: column;
+    }
+    .attendance-top {
+        flex-direction: column;
+    }
+    .camera-card {
+        min-width: unset;
+    }
+    .filter-row {
+        flex-direction: column;
+    }
+    .filter-group select,
+    .filter-group input {
+        min-width: unset;
+        width: 100%;
+    }
+}
+
+/* ============================================================
+   V2: TOAST NOTIFICATIONS
+   ============================================================ */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 360px;
+}
+
+.toast {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    animation: toast-in 0.25s ease-out;
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateX(30px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+.toast-success { background: var(--success-color); }
+.toast-error   { background: var(--danger-color); }
+.toast-info    { background: #1a73e8; }
+.toast-warning { background: var(--warning-color); }
+
+/* ============================================================
+   V2: LOADING SPINNER OVERLAY
+   ============================================================ */
+.spinner-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    border-radius: 8px;
+}
+
+.spinner {
+    width: 42px;
+    height: 42px;
+    border: 4px solid rgba(46, 92, 230, 0.25);
+    border-top-color: var(--button-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   V2: ROI DETECTION BOX OVERLAY (camera preview)
+   ============================================================ */
+.camera-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.roi-box {
+    position: absolute;
+    border: 2px solid #2FA84F;
+    border-radius: 6px;
+    z-index: 10;
+    pointer-events: none;
+    box-shadow: 0 0 0 9999px rgba(15, 27, 51, 0.35);
+}
+
+.roi-box::after {
+    content: 'Align your face here';
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #2FA84F;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px #000;
+}
+
+/* Live recognition status badge on the camera preview */
+.recognition-overlay {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 27, 51, 0.85);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: bold;
+    z-index: 20;
+    white-space: nowrap;
+}
+
+/* ============================================================
+   V2: FACE SEARCH RESULT CARD
+   ============================================================ */
+.result-card {
+    background: var(--card-color);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+.result-card-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.result-face-photo {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--button-color);
+    background: #eef1f7;
+}
+
+.result-face-photo-placeholder {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: var(--button-color);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    font-weight: bold;
+}
+
+.result-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.result-roll {
+    font-size: 12px;
+    color: var(--muted-text);
+    margin-top: 2px;
+}
+
+.result-confidence {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 12px;
+    border-radius: 12px;
+    background: #e6f7e6;
+    color: var(--success-color);
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.result-confidence.low {
+    background: #fde8e8;
+    color: var(--danger-color);
+}
+
+.result-card-body {
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+}
+
+.result-stat {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+
+.result-stat .value {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.result-stat .label {
+    font-size: 11px;
+    color: var(--muted-text);
+    margin-top: 2px;
+}
+
+/* ============================================================
+   V2: CHARTS
+   ============================================================ */
+.chart-card {
+    background: var(--card-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 18px;
+    margin-bottom: 20px;
+}
+
+.chart-card h3 {
+    font-size: var(--font-heading);
+    color: var(--text-color);
+    margin-bottom: 12px;
+}
+
+.chart-box {
+    position: relative;
+    height: 280px;
+}
+
+/* ============================================================
+   V2: PROGRESS BAR (face registration)
+   ============================================================ */
+.progress-bar {
+    width: 100%;
+    height: 10px;
+    background: #e9ecf3;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--button-color);
+    border-radius: 6px;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+/* ============================================================
+   V2: SESSION SUMMARY PANEL
+   ============================================================ */
+.session-summary {
+    background: #eef4ff;
+    border: 1px solid #c5d9f7;
+    border-radius: 8px;
+    padding: 14px;
+    margin-top: 12px;
+    display: none;
+}
+
+.session-summary h4 {
+    font-size: var(--font-heading);
+    color: #1a73e8;
+    margin-bottom: 8px;
+}
+
+.session-summary .summary-grid {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.session-summary .summary-item {
+    font-size: 12px;
+    color: var(--text-color);
+}
+
+.session-summary .summary-item strong {
+    font-size: 16px;
+    color: #1a73e8;
+}

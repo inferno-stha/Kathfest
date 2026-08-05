@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance - Smart Attendance System{% endblock %}
+{% block page_title %}Attendance{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+ATTENDANCE PAGE
+Now with FULLY AUTOMATIC attendance (v2):
+  - Click "Start Attendance" -> camera opens automatically
+  - Faces are detected & recognized continuously (ROI-restricted)
+  - Recognized students are auto-marked (once per day)
+  - Unknown faces are counted but never marked
+  - Click "Stop Attendance" to end the session and view summary
+Confidence % is displayed live and stored in the database.
+============================================================ -->
+<div class="attendance-page">
+    <div class="attendance-top">
+        <!-- Camera Preview Card -->
+        <div class="camera-card">
+            <div class="camera-preview" id="camera-preview">
+                <div class="camera-stage" id="camera-stage">
+                    <div class="camera-placeholder" id="camera-placeholder">
+                        <span class="camera-icon">📷</span>
+                        <p>Camera Preview<br><small>(Click "Start Attendance" to begin)</small></p>
+                    </div>
+                    <video id="video-feed" style="display:none;" autoplay playsinline></video>
+                    <canvas id="capture-canvas" style="display:none;"></canvas>
+                    <!-- v2: ROI detection box overlay -->
+                    <div class="roi-box" id="roi-box" style="display:none;"></div>
+                    <!-- v2: live recognition status -->
+                    <div class="recognition-overlay" id="recognition-overlay" style="display:none;"></div>
+                </div>
+            </div>
+            <!-- Status message area -->
+            <div id="attendance-status" class="alert" style="display:none;margin:10px;border-radius:6px;"></div>
+            <!-- v2: session summary -->
+            <div class="session-summary" id="session-summary">
+                <h4>📋 Session Summary</h4>
+                <div class="summary-grid">
+                    <div class="summary-item">Recognized: <strong id="sum-recognized">0</strong></div>
+                    <div class="summary-item">Unknown Faces: <strong id="sum-unknown">0</strong></div>
+                    <div class="summary-item">Already Marked: <strong id="sum-already">0</strong></div>
+                    <div class="summary-item">Duration: <strong id="sum-duration">0:00</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera Controls -->
+        <div class="camera-controls">
+            <h3>Automatic Attendance</h3>
+
+            <!-- v2: Department / Semester snapshot filters -->
+            <div class="form-group">
+                <label for="dept-filter">Department</label>
+                <select id="dept-filter" class="form-select">
+                    <option value="">All Departments</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}">{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="sem-filter">Semester</label>
+                <select id="sem-filter" class="form-select">
+                    <option value="">All Semesters</option>
+                    {% for sem in semesters %}
+                    <option value="{{ sem }}">{{ sem }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button class="btn btn-success btn-full" onclick="startAttendance()" id="start-btn">
+                ▶ Start Attendance
+            </button>
+            <button class="btn btn-danger btn-full" onclick="stopAttendance()" id="stop-btn" disabled>
+                ⏹ Stop Attendance
+            </button>
+            <button class="btn btn-primary btn-full" onclick="toggleCamera()" id="camera-toggle-btn" disabled>
+                📷 Camera Only
+            </button>
+
+            <hr style="margin:15px 0;border-color:var(--border-color);">
+            <p style="font-size:11px;color:var(--muted-text);">
+                Click <strong>"Start Attendance"</strong>. The camera opens, faces are
+                continuously recognized, and attendance is marked automatically.
+                Each student is marked <strong>only once per day</strong>. Faces
+                outside the green box are ignored.
+            </p>
+        </div>
+    </div>
+
+    <!-- Live Recognized Students -->
+    <div class="attendance-bottom">
+        <h3 class="section-title">Live Recognized Students</h3>
+        <div class="table-container" id="live-table-wrap">
+            <table class="data-table" id="live-recognition-table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Time</th>
+                        <th>Confidence</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="live-recognition-tbody">
+                    <tr>
+                        <td colspan="4" style="text-align:center;color:var(--muted-text);">
+                            Waiting to start...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Today's Attendance Table -->
+    <div class="attendance-bottom" style="margin-top:25px;">
+        <h3 class="section-title">Today's Attendance</h3>
+        <div class="table-container">
+            <table class="data-table" id="attendance-table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Time</th>
+                        <th>Confidence</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="attendance-tbody">
+                    {% for record in attendance %}
+                    <tr>
+                        <td>{{ record[0] }}</td>
+                        <td>{{ record[1] }}</td>
+                        <td>
+                            {% if record[3] is not none %}
+                            {{ record[3] }}%
+                            {% else %}
+                            --
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge {% if record[2] == 'Present' %}status-present{% else %}status-absent{% endif %}">
+                                {{ record[2] }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button class="btn btn-secondary" onclick="refreshAttendance()" style="margin-top:10px;">
+            🔄 Refresh Table
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ============================================================
+   ATTENDANCE PAGE JAVASCRIPT (v2 - Fully Automatic)
+   
+   FLOW:
+   1. User clicks "Start Attendance"
+   2. A camera session is created on the server (session_id)
+   3. The browser webcam opens automatically
+   4. A loop captures frames and sends them to /api/attendance/mark
+   5. The backend recognizes faces (ROI-restricted) + confidence
+   6. Recognized students are auto-marked (once per day)
+   7. Unknown faces are counted, never marked
+   8. "Stop Attendance" ends the loop + session and shows summary
+============================================================ */
+
+let cameraStream = null;
+let camActive = false;
+let autoRunning = false;
+let sessionId = null;
+let scanTimer = null;
+let isScanning = false;
+
+// Session counters
+let recognizedCount = 0;
+let unknownCount = 0;
+let alreadyMarkedCount = 0;
+let sessionStartTime = null;
+const recognizedSet = new Set();
+
+/* ------------------------------------------------------------
+   ROI BOX
+   A square detection box is overlaid in the CENTER of the preview.
+   The box position is computed from the actual video element size.
+   ------------------------------------------------------------ */
+function positionRoiBox() {
+    const video = document.getElementById('video-feed');
+    const roiBox = document.getElementById('roi-box');
+    const stage = document.getElementById('camera-stage');
+
+    if (!video || video.style.display === 'none' || !stage) return;
+
+    const rect = video.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const size = Math.min(rect.width, rect.height) * 0.62;
+
+    const left = stageRect.left + (rect.width - size) / 2;
+    const top = stageRect.top + (rect.height - size) / 2;
+
+    roiBox.style.left = (left - stageRect.left) + 'px';
+    roiBox.style.top = (top - stageRect.top) + 'px';
+    roiBox.style.width = size + 'px';
+    roiBox.style.height = size + 'px';
+    roiBox.style.display = 'block';
+}
+
+/* ------------------------------------------------------------
+   showStatus - message below the camera preview
+   ------------------------------------------------------------ */
+function showStatus(message, type) {
+    const statusDiv = document.getElementById('attendance-status');
+    statusDiv.textContent = message;
+    statusDiv.style.display = 'block';
+
+    const styles = {
+        error:   { background: '#fde8e8', color: '#E63946', border: '1px solid #f5c6c6' },
+        success: { background: '#e6f7e6', color: '#2FA84F', border: '1px solid #c3e6c3' },
+        info:    { background: '#e8f0fe', color: '#1a73e8', border: '1px solid #c5d9f7' }
+    };
+    const s = styles[type] || styles.info;
+    statusDiv.style.background = s.background;
+    statusDiv.style.color = s.color;
+    statusDiv.style.border = s.border;
+}
+
+/* ------------------------------------------------------------
+   Camera control (used by "Camera Only" and face registration)
+   ------------------------------------------------------------ */
+function openCamera() {
+    return navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function(stream) {
+            cameraStream = stream;
+            const video = document.getElementById('video-feed');
+            const placeholder = document.getElementById('camera-placeholder');
+            placeholder.style.display = 'none';
+            video.style.display = 'block';
+            video.srcObject = stream;
+            video.play();
+            camActive = true;
+            positionRoiBox();
+            window.addEventListener('resize', positionRoiBox);
+            return true;
+        })
+        .catch(function(err) {
+            showStatus('Could not access camera: ' + err.message, 'error');
+            return false;
+        });
+}
+
+function closeCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+    camActive = false;
+    const video = document.getElementById('video-feed');
+    const placeholder = document.getElementById('camera-placeholder');
+    video.style.display = 'none';
+    placeholder.style.display = 'block';
+    document.getElementById('roi-box').style.display = 'none';
+    document.getElementById('recognition-overlay').style.display = 'none';
+    window.removeEventListener('resize', positionRoiBox);
+}
+
+function toggleCamera() {
+    if (camActive) {
+        closeCamera();
+        document.getElementById('camera-toggle-btn').textContent = '📷 Camera Only';
+    } else {
+        openCamera().then(ok => {
+            if (ok) document.getElementById('camera-toggle-btn').textContent = '📷 Stop Camera';
+        });
+    }
+}
+
+/* ------------------------------------------------------------
+   FULLY AUTOMATIC ATTENDANCE
+   ------------------------------------------------------------ */
+
+function startAttendance() {
+    if (autoRunning) return;
+
+    // 1. Create a camera session on the server
+    fetch('/api/attendance/session/start', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            sessionId = data.session_id;
+
+            // 2. Open the camera automatically
+            return openCamera();
+        })
+        .then(ok => {
+            if (!ok) return;
+
+            autoRunning = true;
+            sessionStartTime = Date.now();
+            recognizedCount = 0;
+            unknownCount = 0;
+            alreadyMarkedCount = 0;
+            recognizedSet.clear();
+
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('stop-btn').disabled = false;
+            document.getElementById('session-summary').style.display = 'block';
+            document.getElementById('live-recognition-tbody').innerHTML =
+                '<tr><td colspan="4" style="text-align:center;color:var(--muted-text);">Scanning...</td></tr>';
+
+            showStatus('🟢 Attendance in progress. Face the camera...', 'success');
+            updateSummary();
+            scanLoop();
+        })
+        .catch(err => showStatus('Could not start session: ' + err.message, 'error'));
+}
+
+function stopAttendance() {
+    if (!autoRunning) return;
+    autoRunning = false;
+    if (scanTimer) clearTimeout(scanTimer);
+
+    closeCamera();
+    document.getElementById('start-btn').disabled = false;
+    document.getElementById('stop-btn').disabled = true;
+
+    // End the session and store the summary
+    if (sessionId) {
+        fetch('/api/attendance/session/end', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: sessionId,
+                total_recognized: recognizedSet.size,
+                unknown_faces: unknownCount
+            })
+        }).catch(() => {});
+    }
+
+    const minutes = Math.floor((Date.now() - sessionStartTime) / 60000);
+    const seconds = Math.floor(((Date.now() - sessionStartTime) % 60000) / 1000);
+    document.getElementById('sum-duration').textContent = `${minutes}:${String(seconds).padStart(2, '0')}`;
+    document.getElementById('sum-recognized').textContent = recognizedSet.size;
+
+    showStatus('⏹ Attendance session ended.', 'info');
+}
+
+/* The recognition loop: capture a frame, send to server, process. */
+function scanLoop() {
+    if (!autoRunning) return;
+
+    if (!isScanning && camActive) {
+        captureAndRecognize();
+    }
+
+    // Scan every 1.2 seconds (respecting in-flight request)
+    scanTimer = setTimeout(scanLoop, 1200);
+}
+
+function captureAndRecognize() {
+    const video = document.getElementById('video-feed');
+    if (!camActive || !video.videoWidth) return;
+
+    isScanning = true;
+
+    const canvas = document.getElementById('capture-canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL('image/jpeg');
+
+    const dept = document.getElementById('dept-filter').value;
+    const sem = document.getElementById('sem-filter').value;
+
+    fetch('/api/attendance/mark', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            image: imageData,
+            session_id: sessionId,
+            department: dept || null,
+            semester: sem || null
+        })
+    })
+    .then(res => res.json())
+    .then(result => {
+        const overlay = document.getElementById('recognition-overlay');
+        overlay.style.display = 'block';
+
+        if (result.success) {
+            overlay.textContent = `✅ ${result.student_name}  (${result.confidence}%)`;
+            overlay.style.background = 'rgba(47,168,79,0.9)';
+
+            if (result.already_marked) {
+                alreadyMarkedCount++;
+            } else {
+                recognizedCount++;
+                recognizedSet.add(result.student_name);
+                addLiveRow(result.student_name, result.confidence, 'Marked ✅');
+            }
+            refreshAttendance();
+        } else {
+            // Unknown / no-face / low confidence
+            overlay.textContent = `❓ ${result.message || 'Unknown Person'}`;
+            overlay.style.background = 'rgba(230,57,70,0.9)';
+            if (result.message === 'Unknown Person' ||
+                result.message === 'Unknown Person (low confidence)') {
+                unknownCount++;
+            }
+        }
+        updateSummary();
+    })
+    .catch(err => {
+        const overlay = document.getElementById('recognition-overlay');
+        overlay.textContent = '⚠ Recognition error';
+        overlay.style.background = 'rgba(230,57,70,0.9)';
+        overlay.style.display = 'block';
+    })
+    .finally(() => { isScanning = false; });
+}
+
+/* Add a row to the live recognition table. */
+function addLiveRow(name, confidence, status) {
+    const tbody = document.getElementById('live-recognition-tbody');
+    if (tbody.firstElementChild && tbody.firstElementChild.textContent.includes('Scanning')) {
+        tbody.innerHTML = '';
+    }
+    const time = new Date().toLocaleTimeString();
+    const row = `<tr>
+        <td>${name}</td>
+        <td>${time}</td>
+        <td>${confidence}%</td>
+        <td><span class="status-badge status-present">${status}</span></td>
+    </tr>`;
+    tbody.insertAdjacentHTML('afterbegin', row);
+}
+
+function updateSummary() {
+    document.getElementById('sum-recognized').textContent = recognizedSet.size;
+    document.getElementById('sum-unknown').textContent = unknownCount;
+    document.getElementById('sum-already').textContent = alreadyMarkedCount;
+    const minutes = Math.floor((Date.now() - (sessionStartTime || Date.now())) / 60000);
+    const seconds = Math.floor(((Date.now() - (sessionStartTime || Date.now())) % 60000) / 60);
+    document.getElementById('sum-duration').textContent = `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+/* ------------------------------------------------------------
+   Attendance table refresh
+   ------------------------------------------------------------ */
+function refreshAttendance() {
+    fetch('/api/attendance/data')
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.getElementById('attendance-tbody');
+        tbody.innerHTML = '';
+        data.forEach(record => {
+            const statusClass = record.status === 'Present' ? 'status-present' : 'status-absent';
+            const confidence = record.confidence !== null && record.confidence !== undefined
+                ? record.confidence + '%' : '--';
+            const row = `<tr>
+                <td>${record.name}</td>
+                <td>${record.time}</td>
+                <td>${confidence}</td>
+                <td><span class="status-badge ${statusClass}">${record.status}</span></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    })
+    .catch(() => {});
+}
+
+/* Keep the live table in sync with today's marks. */
+refreshAttendance();
+</script>
+{% endblock %}

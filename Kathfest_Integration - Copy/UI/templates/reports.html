@@ -1,0 +1,486 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Smart Attendance System{% endblock %}
+{% block page_title %}Reports{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+REPORTS PAGE
+Maps to Tkinter's show_reports() in app.py (line 288).
+v2 additions:
+  - Individual graphical report: pick a student, see charts
+  - Attendance %, Present vs Absent pie, Monthly bar, Weekly line
+  - Export the report as PNG / PDF
+  - Department / Semester / date filters on the records table
+============================================================ -->
+<div class="reports-page">
+    <!-- Statistics Cards -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #2E5CE6;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ total_students }}</div>
+                <div class="stat-label">Total Students</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #2FA84F;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ present_students }}</div>
+                <div class="stat-label">Present Today</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-accent" style="background: #E63946;"></div>
+            <div class="stat-body">
+                <div class="stat-number">{{ absent_students }}</div>
+                <div class="stat-label">Absent Today</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         V2: INDIVIDUAL GRAPHICAL REPORT
+         ============================================================ -->
+    <div class="chart-card">
+        <h3>📊 Individual Graphical Report</h3>
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="report-dept">Department</label>
+                <select id="report-dept" class="form-select" onchange="loadStudentsForReport()">
+                    <option value="all">All Departments</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}">{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="report-sem">Semester</label>
+                <select id="report-sem" class="form-select" onchange="loadStudentsForReport()">
+                    <option value="all">All Semesters</option>
+                    {% for sem in semesters %}
+                    <option value="{{ sem }}">{{ sem }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="report-student">Select Student</label>
+                <select id="report-student" class="form-select" onchange="loadStudentReport()">
+                    <option value="">-- Select a student --</option>
+                    {% for s in students %}
+                    <option value="{{ s.id }}">{{ s.name }} ({{ s.roll_number }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>&nbsp;</label>
+                <button class="btn btn-primary" onclick="exportReportPNG()">🖼 Export PNG</button>
+            </div>
+            <div class="filter-group">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" onclick="exportReportPDF()">📄 Export PDF</button>
+            </div>
+        </div>
+
+        <!-- Student report summary -->
+        <div id="report-stats" class="stats-row" style="margin-top:10px;display:none;">
+            <div class="stat-card">
+                <div class="stat-accent" style="background:#2E5CE6;"></div>
+                <div class="stat-body"><div class="stat-number" id="rep-total">0</div><div class="stat-label">Total Classes</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-accent" style="background:#2FA84F;"></div>
+                <div class="stat-body"><div class="stat-number" id="rep-present">0</div><div class="stat-label">Present</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-accent" style="background:#E63946;"></div>
+                <div class="stat-body"><div class="stat-number" id="rep-absent">0</div><div class="stat-label">Absent</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-accent" style="background:#E8A93B;"></div>
+                <div class="stat-body"><div class="stat-number" id="rep-pct">0%</div><div class="stat-label">Attendance %</div></div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">
+            <div class="chart-box"><canvas id="chart-pie"></canvas></div>
+            <div class="chart-box"><canvas id="chart-monthly"></canvas></div>
+            <div class="chart-box"><canvas id="chart-weekly"></canvas></div>
+        </div>
+        <p id="report-empty" style="color:var(--muted-text);text-align:center;padding:30px;">
+            Select a student above to generate their graphical report.
+        </p>
+    </div>
+
+    <!-- Report Options -->
+    <div class="reports-actions" style="margin-top:20px;">
+        <h3 class="section-title">Download Reports</h3>
+        <div class="actions-row" style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="exportCSV()">📄 Export All Attendance (CSV)</button>
+            <button class="btn btn-secondary" onclick="exportTodayCSV()">📄 Export Today Only (CSV)</button>
+        </div>
+    </div>
+
+    <!-- All Attendance Records Table with filters -->
+    <div style="margin-top:25px;">
+        <h3 class="section-title">All Attendance Records</h3>
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="table-dept">Department</label>
+                <select id="table-dept" class="form-select" onchange="loadAllRecords()">
+                    <option value="all">All Departments</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}">{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="table-sem">Semester</label>
+                <select id="table-sem" class="form-select" onchange="loadAllRecords()">
+                    <option value="all">All Semesters</option>
+                    {% for sem in semesters %}
+                    <option value="{{ sem }}">{{ sem }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="table-date">Date</label>
+                <input type="date" id="table-date" class="form-input" onchange="loadAllRecords()">
+            </div>
+        </div>
+        <div class="table-container">
+            <table class="data-table" id="reports-table">
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Roll Number</th>
+                        <th>Department</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Confidence</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="reports-tbody">
+                    <tr>
+                        <td colspan="7" style="text-align:center;color:var(--muted-text);">
+                            Loading data...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ============================================================
+   REPORTS PAGE JAVASCRIPT
+   Chart.js graphs + export PNG/PDF for the individual report.
+============================================================ */
+
+let pieChart = null;
+let monthlyChart = null;
+let weeklyChart = null;
+
+/**
+ * exportCSV() - Downloads the full attendance report as a CSV file.
+ */
+function exportCSV() {
+    const link = document.createElement('a');
+    link.href = '/api/export-csv';
+    link.download = 'attendance_report.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * exportTodayCSV() - Exports only today's attendance records as CSV.
+ */
+function exportTodayCSV() {
+    fetch('/api/attendance/data')
+    .then(res => res.json())
+    .then(data => {
+        if (data.length === 0) {
+            toastInfo('No attendance records for today.');
+            return;
+        }
+        let csv = 'Name,Time,Confidence,Status\n';
+        data.forEach(r => {
+            const conf = (r.confidence !== null && r.confidence !== undefined) ? r.confidence : '';
+            csv += `"${r.name}","${r.time}","${conf}","${r.status}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'attendance_today.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    });
+}
+
+/* ------------------------------------------------------------
+   Load student list filtered by department/semester into the
+   student dropdown (SQL filtering via /api/students/filter).
+   ------------------------------------------------------------ */
+function loadStudentsForReport() {
+    const dept = document.getElementById('report-dept').value;
+    const sem = document.getElementById('report-sem').value;
+
+    fetch('/api/students/filter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ department: dept, semester: sem, query: '' })
+    })
+    .then(res => res.json())
+    .then(data => {
+        const select = document.getElementById('report-student');
+        select.innerHTML = '<option value="">-- Select a student --</option>';
+        data.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = `${s.name} (${s.roll_number})`;
+            select.appendChild(opt);
+        });
+    })
+    .catch(err => toastError(err.message));
+}
+
+/* ------------------------------------------------------------
+   Load and render the individual student report.
+   ------------------------------------------------------------ */
+function loadStudentReport() {
+    const studentId = document.getElementById('report-student').value;
+    const empty = document.getElementById('report-empty');
+    const stats = document.getElementById('report-stats');
+
+    if (!studentId) {
+        empty.style.display = 'block';
+        stats.style.display = 'none';
+        destroyCharts();
+        return;
+    }
+
+    fetch(`/api/students/stats/${studentId}`)
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) { toastError(data.error); return; }
+
+        const s = data.stats;
+        document.getElementById('rep-total').textContent = s.total_classes;
+        document.getElementById('rep-present').textContent = s.present;
+        document.getElementById('rep-absent').textContent = s.absent;
+        document.getElementById('rep-pct').textContent = s.attendance_pct + '%';
+        stats.style.display = 'flex';
+        empty.style.display = 'none';
+
+        renderCharts(s);
+    })
+    .catch(err => toastError(err.message));
+}
+
+function destroyCharts() {
+    [pieChart, monthlyChart, weeklyChart].forEach(ch => {
+        if (ch) { ch.destroy(); ch = null; }
+    });
+}
+
+function renderCharts(s) {
+    destroyCharts();
+
+    // 1. Present vs Absent pie chart
+    pieChart = new Chart(document.getElementById('chart-pie'), {
+        type: 'pie',
+        data: {
+            labels: ['Present', 'Absent'],
+            datasets: [{
+                data: [s.present, s.absent],
+                backgroundColor: ['#2FA84F', '#E63946']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: 'Present vs Absent' } }
+        }
+    });
+
+    // 2. Monthly attendance bar chart
+    monthlyChart = new Chart(document.getElementById('chart-monthly'), {
+        type: 'bar',
+        data: {
+            labels: s.monthly_labels,
+            datasets: [
+                {
+                    label: 'Total',
+                    data: s.monthly_total,
+                    backgroundColor: '#c5d9f7'
+                },
+                {
+                    label: 'Present',
+                    data: s.monthly_present,
+                    backgroundColor: '#2E5CE6'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: 'Monthly Attendance' } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+
+    // 3. Weekly attendance line chart
+    weeklyChart = new Chart(document.getElementById('chart-weekly'), {
+        type: 'line',
+        data: {
+            labels: s.weekly_labels,
+            datasets: [{
+                label: 'Present',
+                data: s.weekly_present,
+                borderColor: '#E8A93B',
+                backgroundColor: 'rgba(232,169,59,0.15)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: 'Weekly Attendance' } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+}
+
+/* ------------------------------------------------------------
+   Export the individual report as PNG (Chart.js toBase64Image)
+   and as PDF (print window).
+   ------------------------------------------------------------ */
+function exportReportPNG() {
+    if (!pieChart && !monthlyChart && !weeklyChart) {
+        toastWarning('Select a student first.');
+        return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = 900;
+    canvas.height = 500;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Simple layout: place the three chart images side by side
+    const sources = [];
+    [pieChart, monthlyChart, weeklyChart].forEach(ch => {
+        if (ch) sources.push(ch.toBase64Image());
+    });
+    const count = sources.length;
+    const w = 300;
+    const xOffset = (canvas.width - count * w) / 2;
+    sources.forEach((src, i) => {
+        const img = new Image();
+        img.src = src;
+        ctx.drawImage(img, xOffset + i * w, 100, w, 300);
+    });
+
+    const link = document.createElement('a');
+    link.download = 'student_report.png';
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toastSuccess('Report exported as PNG.');
+}
+
+function exportReportPDF() {
+    if (!pieChart && !monthlyChart && !weeklyChart) {
+        toastWarning('Select a student first.');
+        return;
+    }
+    // Open a print window containing the charts - user can "Save as PDF".
+    const win = window.open('', '_blank');
+    const pie = pieChart ? pieChart.toBase64Image() : '';
+    const monthly = monthlyChart ? monthlyChart.toBase64Image() : '';
+    const weekly = weeklyChart ? weeklyChart.toBase64Image() : '';
+    win.document.write(`
+        <html><head><title>Student Report</title>
+        <style>
+            body { font-family: Arial, sans-serif; padding: 30px; }
+            h1 { font-size: 20px; }
+            h3 { margin-top: 25px; }
+            img { max-width: 45%; margin: 10px; }
+            @media print { body { -webkit-print-color-adjust: exact; } }
+        </style></head>
+        <body>
+            <h1>Individual Attendance Report</h1>
+            <h3>Present vs Absent</h3><img src="${pie}">
+            <h3>Monthly Attendance</h3><img src="${monthly}">
+            <h3>Weekly Attendance</h3><img src="${weekly}">
+            <script>
+                window.onload = function() { window.print(); };
+            </scr` + `ipt>
+        </body></html>
+    `);
+    win.document.close();
+    toastSuccess('PDF export opened. Choose "Save as PDF" in the print dialog.');
+}
+
+/* ------------------------------------------------------------
+   Load all attendance records with filters.
+   ------------------------------------------------------------ */
+function loadAllRecords() {
+    const dept = document.getElementById('table-dept').value;
+    const sem = document.getElementById('table-sem').value;
+    const date = document.getElementById('table-date').value;
+
+    let url = '/api/attendance/all?department=' + encodeURIComponent(dept) +
+              '&semester=' + encodeURIComponent(sem);
+    if (date) url += '&date=' + encodeURIComponent(date);
+
+    fetch(url)
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.getElementById('reports-tbody');
+        tbody.innerHTML = '';
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted-text);">No attendance records found.</td></tr>';
+            return;
+        }
+
+        data.forEach(r => {
+            const statusClass = r.status === 'Present' ? 'status-present' : 'status-absent';
+            const conf = (r.confidence !== null && r.confidence !== undefined) ? r.confidence + '%' : '--';
+            const row = `<tr>
+                <td>${r.name}</td>
+                <td>${r.roll_number}</td>
+                <td>${r.department}</td>
+                <td>${r.date}</td>
+                <td>${r.time}</td>
+                <td>${conf}</td>
+                <td><span class="status-badge ${statusClass}">${r.status}</span></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    })
+    .catch(err => {
+        document.getElementById('reports-tbody').innerHTML =
+            '<tr><td colspan="7" style="text-align:center;color:var(--danger-color);">Error loading data.</td></tr>';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllRecords();
+});
+</script>
+{% endblock %}

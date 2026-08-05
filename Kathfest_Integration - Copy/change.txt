@@ -1,0 +1,242 @@
+============================================================
+ SMART STUDENT ATTENDANCE SYSTEM - CHANGES FROM ORIGINAL
+ Version 2.0 (Hackathon-ready upgrade)
+============================================================
+
+This document lists every change made to the original Smart Student
+Attendance System (Flask + OpenCV + face_recognition + SQLite). The
+original project structure, UI theme, routes and database were kept;
+the features below were added or upgraded on top of them.
+
+------------------------------------------------------------
+1. NEW / MODIFIED CONFIG SETTINGS  (config.py)
+------------------------------------------------------------
+- Added FACE_MATCH_THRESHOLD = 0.50  (maximum face distance that still
+  counts as a "match" for marking attendance)
+- Added CONFIDENCE_THRESHOLD = 0.55  (minimum confidence percentage for
+  a recognition to be accepted)
+- Added FACE_DUPLICATE_THRESHOLD = 0.55 (minimum confidence for a face
+  to be rejected as a duplicate during registration)
+- Added ROI (Region of Interest) settings:
+    ROI_ENABLED  = True
+    ROI_SIZE     = 300   (pixels)
+    ROI_COLOR    = (0, 255, 0)  (green box)
+
+------------------------------------------------------------
+2. DATABASE SCHEMA CHANGES  (database/db.py)
+------------------------------------------------------------
+- students table:
+    + new column  face_image BLOB        (stores the registered face
+                                           photo JPEG so it can be
+                                           displayed later)
+- attendance table:
+    + new column  department TEXT        (department captured at
+                                           mark time)
+    + new column  semester TEXT          (semester captured at mark time)
+    + new column  confidence REAL        (recognition confidence %)
+    + new column  session_id INTEGER     (links to camera_sessions)
+- new table     camera_sessions          (id, date, start_time,
+                                           end_time, total_recognized,
+                                           unknown_faces)
+- new indexes: ix_attendance_student_date, ix_attendance_session,
+               ix_attendance_department, ix_attendance_semester,
+               ix_students_roll
+- initialize_database() now runs _create_indexes() and
+  _migrate_attendance_schema() which ALTER TABLE existing databases
+  in place (no data loss). Older databases are migrated automatically
+  on first start.
+- mark_attendance() now accepts confidence, session_id, department,
+  semester.
+- update_face_encoding() now accepts a face_image parameter.
+- get_all_face_encodings() now also returns department, semester and
+  face_image per student (used by attendance + face search).
+- New query functions added:
+    get_all_face_encodings_for_duplicate_check()
+    find_duplicate_face(encoding, exclude_student_id)
+    get_student_stats(student_id)
+    get_attendance_by_department(date_from, date_to, status)
+    get_attendance_by_semester(date_from, date_to, status)
+    get_daily_attendance(days)
+    get_monthly_attendance(months)
+    get_top_absent_students(limit)
+    create_camera_session()
+    end_camera_session(session_id, total_recognized, unknown_faces)
+    get_session_summary(session_id)
+    get_last_attendance_date(student_id)
+- get_all_attendance_records() and get_attendance_by_date() gained
+  optional filters: department, semester, status, date_from, date_to.
+- CSV export now includes semester and confidence columns.
+
+------------------------------------------------------------
+3. NEW FILE - backend/validation.py
+------------------------------------------------------------
+Shared input-validation module used by BOTH the backend routes and
+mirrored by the frontend JavaScript:
+    validate_name()      - letters, spaces, hyphen, apostrophe, 2-60 chars
+    validate_roll_number()- positive integer or college format
+                            (e.g. 42, BCT001, KIC081BCT026)
+    validate_department() - required, must be a known department
+    validate_semester()   - required, must be a known semester
+    validate_student_input() - runs all of the above and returns errors
+
+------------------------------------------------------------
+4. FACE RECOGNITION UPGRADES  (backend/face_recognizer.py)
+------------------------------------------------------------
+- ROI (Region of Interest) detection:
+    get_roi_rect()     - returns the fixed green ROI box coordinates
+    detect_faces_in_roi()- only detects faces whose bounding box
+                           intersects the ROI box
+    draw_roi()         - draws the ROI box + "Aim face here" label
+- find_best_match() - new function that compares a face encoding
+  against all known students and returns the closest match together
+  with its face_distance.
+- Confidence calculation:
+        confidence = (1 - face_distance) * 100
+  Results below CONFIDENCE_THRESHOLD are ignored (reported as unknown).
+- check_duplicate_face() - returns the closest existing registered
+  student above FACE_DUPLICATE_THRESHOLD (used during registration).
+- recognize() reworked to also return confidence, distance and the
+  ROI rect. Multiple faces outside the ROI are ignored.
+
+------------------------------------------------------------
+5. ATTENDANCE PIPELINE UPGRADES  (backend/attendance.py)
+------------------------------------------------------------
+- mark_attendance_from_frame() now accepts session_id, department,
+  semester and returns confidence + distance alongside the result.
+- search_student_by_face() - NEW: matches a camera frame against all
+  registered faces and returns the student record (used by Face Search).
+- start_camera_session() / finish_camera_session() - NEW: track an
+  attendance run in the camera_sessions table (start time, recognized
+  count, unknown faces).
+
+------------------------------------------------------------
+6. ROUTES CHANGES  (routes.py)
+------------------------------------------------------------
+NEW routes:
+    GET  /face-search                      -> Face Search page
+    POST /api/face-search                  -> search student by face
+    POST /api/attendance/session/start     -> start a camera session
+    POST /api/attendance/session/end       -> end session + save summary
+    GET  /api/students/stats/<id>          -> per-student stats
+    GET  /api/dashboard/attendance-by-department
+    GET  /api/dashboard/attendance-by-semester
+    GET  /api/dashboard/daily?days=N
+    GET  /api/dashboard/monthly?months=N
+    GET  /api/dashboard/top-absent
+
+MODIFIED routes:
+    /students      -> passes the departments and semesters lists to the
+                      template for the filter dropdowns
+    /attendance    -> passes departments/semesters; automatic workflow
+    /reports       -> passes student list + departments/semesters
+    /api/students/add      -> validates input via backend/validation.py
+    /api/students/update   -> validates input via backend/validation.py
+    /api/capture-face      -> runs the duplicate-face guard (rejects a
+                              face already registered for another
+                              student) and stores the face JPEG
+    /api/attendance/mark   -> passes session_id/department/semester
+    /api/export-csv        -> new filters + semester/confidence columns
+- Fixed a JSON serialization bug: raw BLOB bytes (face_encoding /
+  face_image) are now sanitized for JSON responses
+  (_sanitize_students(): face_encoding -> has_face flag,
+   face_image -> base64 string).
+
+------------------------------------------------------------
+7. NEW FILE - migrate_db.py
+------------------------------------------------------------
+Standalone script to inspect/migrate the database schema without
+starting the web server:
+    python migrate_db.py --check     -> print schema status
+    python migrate_db.py             -> run the migration
+
+------------------------------------------------------------
+8. UI TEMPLATES  (UI/templates/)
+------------------------------------------------------------
+base.html:
+    - Added Chart.js 4.4.1 (CDN) for all charts
+    - Added "Face Search" item in the sidebar navigation
+    - Added a global toast-notification container
+dashboard.html:
+    - Rewritten: 4 stat cards (Total Students, Present Today,
+      Attendance %, Face Registered) + graphical charts
+      (attendance by department, by semester, last 14 days, monthly)
+    - Added Top Absent Students table
+    - Added Face Search quick-action button
+students.html:
+    - Rewritten: Department/Semester filters + search (no reload)
+    - Add/Edit modal with field-level validation and inline hints
+    - Face-capture modal with ROI box, progress bar, and duplicate-face
+      rejection display
+    - Toast notifications for add/edit/delete/face-capture
+attendance.html:
+    - Rewritten for FULLY AUTOMATIC attendance: one "Start Attendance"
+      button opens the camera, starts a session and continuously
+      recognizes faces; "Stop Attendance" ends the session
+    - Green ROI overlay box on the camera preview
+    - Department/Semester snapshot captured at mark time
+    - Confidence percentage shown for every recognition
+    - Session summary panel (start time, recognized, unknown)
+    - Live recognition table updated in real time
+face_search.html:
+    - NEW page: camera preview + ROI box + "Search Face" button
+    - Result card shows photo, name, roll, department, semester,
+      match confidence, and today's attendance status
+reports.html:
+    - Rewritten: individual graphical report per student
+    - Stat cards: total / present / absent / percentage
+    - Pie chart (present vs absent), Monthly bar chart, Weekly line chart
+    - Export charts to PNG / PDF
+    - Records table with date, department, semester, status filters
+about.html:
+    - Updated version to 2.0 and new features list
+
+------------------------------------------------------------
+9. FRONTEND JAVASCRIPT  (UI/static/js/script.js)
+------------------------------------------------------------
+Rewritten with reusable helpers used by all pages:
+    showNotification() / toastSuccess / toastError / toastInfo / toastWarning
+    handleApiResponse()  - standard JSON response handling + toasts
+    formatTime12hr()
+    isValidName() / isValidRollNumber() / isValidDepartment()  (mirror
+    the backend validation so users get instant feedback while typing)
+    showSpinner() / hideSpinner()
+
+------------------------------------------------------------
+10. FRONTEND STYLES  (UI/static/css/style.css)
+------------------------------------------------------------
+Added styles for: toast notifications, spinner overlay, ROI box,
+recognition overlay, result card, chart cards/boxes, progress bar,
+session summary, field hint / field error states, and responsive
+layout improvements. The original blue theme is preserved.
+
+------------------------------------------------------------
+11. DOCUMENTATION
+------------------------------------------------------------
+README.md updated: Version 2.0 feature list, new folder structure
+(face_search.html, backend/validation.py, migrate_db.py,
+change.txt), usage guide for the automatic workflow and face search,
+and the full API endpoint table (all new endpoints listed).
+
+============================================================
+ SUMMARY OF THE 8 REQUIRED FEATURES
+============================================================
+1. Department & Semester Filters        -> students.html, reports.html,
+                                           /api/students/filter,
+                                           attendance dept/sem capture
+2. Duplicate Face Prevention            -> check_duplicate_face() +
+                                           /api/capture-face guard
+3. Region of Interest (ROI) Detection   -> get_roi_rect() /
+                                           detect_faces_in_roi() +
+                                           ROI overlay on all pages
+4. Graphical Reports (Pie/Bar/Line)     -> reports.html + dashboard
+                                           charts via Chart.js,
+                                           PNG/PDF export
+5. Confidence Display                   -> confidence % shown for every
+                                           recognition + stored in DB
+6. Face Search (search student by face) -> /face-search + /api/face-search
+7. Input Validation (server + client)   -> backend/validation.py +
+                                           mirrored JS helpers
+8. Fully Automatic Attendance           -> automatic recognition loop,
+                                           session tracking,
+                                           auto-marking with confidence
+============================================================
